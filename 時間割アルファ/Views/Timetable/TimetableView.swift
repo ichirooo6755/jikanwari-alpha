@@ -28,10 +28,16 @@ struct TimetableView: View {
                     timetableGrid(geo: geo)
                         .frame(maxHeight: .infinity)
 
+                    // 登録モード: 候補バー（常時表示）
+                    if viewModel.isRegistrationMode {
+                        candidateBar
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
                     // 参照パネル（登録モード・展開時のみ）
                     if viewModel.isRegistrationMode && showReferencePanel {
                         ReferencePanelView(viewModel: viewModel)
-                            .frame(height: geo.size.height * 0.42)
+                            .frame(height: geo.size.height * 0.35)
                             .transition(
                                 .asymmetric(
                                     insertion: .move(edge: .bottom).combined(with: .opacity),
@@ -205,12 +211,14 @@ struct TimetableView: View {
         let spacing: CGFloat = 0.5     // セル間の最小スペーシング
         let compactHeaderH: CGFloat = 36 // 1行ヘッダー概算
         let tabBarH: CGFloat = 49      // TabBar高さ
+        let candidateBarH: CGFloat = viewModel.isRegistrationMode ? 72 : 0 // 候補バー高さ
 
-        // 利用可能な高さ: 画面全体 - ヘッダー - 曜日行 - TabBar - safeArea
+        // 利用可能な高さ: 画面全体 - ヘッダー - 曜日行 - 候補バー - TabBar
         let refPanelH: CGFloat = (viewModel.isRegistrationMode && showReferencePanel) ? geo.size.height * 0.35 : 0
         let availableH = geo.size.height
             - compactHeaderH
             - dayHeaderH
+            - candidateBarH
             - refPanelH
             - tabBarH
             - CGFloat(periods.count - 1) * spacing
@@ -270,35 +278,84 @@ struct TimetableView: View {
                 }
             }
         }
-        // 登録モード: FABボタン（候補リストを開く）
-        .overlay(alignment: .bottomTrailing) {
-            if viewModel.isRegistrationMode {
+    }
+
+    // MARK: - Candidate Bar (画面下部常時表示)
+
+    private var candidateBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 0) {
+                // 候補リスト（水平スクロール + ドラッグ対応）
+                if viewModel.filteredCandidates.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("候補なし")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 6) {
+                            ForEach(viewModel.filteredCandidates) { course in
+                                candidateChip(course)
+                                    .onDrag {
+                                        NSItemProvider(object: course.id.uuidString as NSString)
+                                    }
+                            }
+                        }
+                        .padding(.horizontal, 8)
+                    }
+                }
+
+                // 追加ボタン
                 Button {
                     showCandidateSheet = true
                 } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                        // カラー影: 青い光彩でボタンが浮いて見える
-                        .shadow(color: Color.blue.opacity(0.35), radius: 12, x: 0, y: 6)
-                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
                 }
-                .buttonStyle(FABButtonStyle())
-                .padding(.trailing, 16)
-                .padding(.bottom, geo.safeAreaInsets.bottom + 8)
-                // spring 登場: scale(0.7) + opacity から入場
-                .transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 0.7, anchor: .bottomTrailing)
-                            .combined(with: .opacity),
-                        removal: .scale(scale: 0.8, anchor: .bottomTrailing)
-                            .combined(with: .opacity)
-                    )
-                )
+                .buttonStyle(.pressable)
+                .padding(.horizontal, 8)
             }
+            .frame(height: 60)
+            .padding(.vertical, 6)
+            .background(Color(.systemBackground))
+        }
+    }
+
+    // MARK: - Candidate Chip (コンパクト版)
+
+    private func candidateChip(_ course: Course) -> some View {
+        let isSelected = viewModel.selectedCourses.contains(course.id)
+        return VStack(alignment: .leading, spacing: 1) {
+            Text(course.name)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+            Text("\(course.credits)単 \(course.instructor)")
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(hex: course.colorHex).opacity(isSelected ? 0.3 : 0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(
+                            isSelected ? Color(hex: course.colorHex) : Color(.systemGray4),
+                            lineWidth: isSelected ? 1.5 : 0.5
+                        )
+                )
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture {
+            viewModel.toggleCourseSelection(course.id)
+            HapticFeedback.light()
         }
     }
 
