@@ -11,6 +11,7 @@ struct TimetableView: View {
     @State private var showBatchColorPicker = false
     @State private var showCandidateSheet = false
     @State private var showReferencePanel = false
+    @State private var isTrashTargeted = false
 
     @Query(sort: \Semester.createdAt)
     private var allSemesters: [Semester]
@@ -278,6 +279,36 @@ struct TimetableView: View {
                 }
             }
         }
+        // 登録モード: 左下にゴミ箱ドロップゾーン
+        .overlay(alignment: .bottomLeading) {
+            if viewModel.isRegistrationMode {
+                trashDropZone(geo: geo)
+            }
+        }
+    }
+
+    // MARK: - Trash Drop Zone (左下ゴミ箱)
+
+    private func trashDropZone(geo: GeometryProxy) -> some View {
+        Image(systemName: isTrashTargeted ? "trash.fill" : "trash")
+            .font(.title2)
+            .foregroundStyle(isTrashTargeted ? .red : .secondary)
+            .frame(width: 52, height: 52)
+            .background(
+                Circle()
+                    .fill(isTrashTargeted ? Color.red.opacity(0.15) : Color(.systemGray5))
+            )
+            .overlay(
+                Circle()
+                    .stroke(isTrashTargeted ? Color.red.opacity(0.5) : Color(.systemGray4), lineWidth: 1)
+            )
+            .scaleEffect(isTrashTargeted ? 1.15 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isTrashTargeted)
+            .onDrop(of: [.text], isTargeted: $isTrashTargeted) { providers in
+                handleTrashDrop(providers: providers)
+            }
+            .padding(.leading, 12)
+            .padding(.bottom, 8)
     }
 
     // MARK: - Candidate Bar (画面下部常時表示)
@@ -309,13 +340,21 @@ struct TimetableView: View {
                     }
                 }
 
-                // 追加ボタン
+                // 授業追加ボタン（大きく目立つ）
                 Button {
                     showCandidateSheet = true
                 } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.blue)
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus")
+                            .font(.caption.weight(.bold))
+                        Text("追加")
+                            .font(.caption.weight(.bold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.blue)
+                    .clipShape(Capsule())
                 }
                 .buttonStyle(.pressable)
                 .padding(.horizontal, 8)
@@ -361,6 +400,7 @@ struct TimetableView: View {
 
     // MARK: - Drag & Drop
 
+    // D&Dは常に「追加」（同一コマに複数可）。削除はゴミ箱へD&D。
     private func handleDrop(providers: [NSItemProvider], day: Int, period: Int) -> Bool {
         guard viewModel.isRegistrationMode else { return false }
         providers.first?.loadDataRepresentation(forTypeIdentifier: "public.text") { data, _ in
@@ -369,14 +409,31 @@ struct TimetableView: View {
             DispatchQueue.main.async {
                 guard let semester = viewModel.selectedSemester else { return }
                 if let course = semester.courses.first(where: { $0.id == id }) {
-                    if let existingSlot = course.slots.first {
-                        viewModel.moveCourse(course,
-                                             fromDay: existingSlot.day, fromPeriod: existingSlot.period,
-                                             toDay: day, toPeriod: period,
-                                             context: modelContext)
-                    } else {
-                        viewModel.assignCourse(course, day: day, period: period, context: modelContext)
+                    viewModel.assignCourse(course, day: day, period: period, context: modelContext)
+                    HapticFeedback.success()
+                }
+            }
+        }
+        return true
+    }
+
+    // ゴミ箱ドロップ: セルから授業を削除（候補には残る）
+    private func handleTrashDrop(providers: [NSItemProvider]) -> Bool {
+        guard viewModel.isRegistrationMode else { return false }
+        providers.first?.loadDataRepresentation(forTypeIdentifier: "public.text") { data, _ in
+            guard let data, let idString = String(data: data, encoding: .utf8),
+                  let id = UUID(uuidString: idString) else { return }
+            DispatchQueue.main.async {
+                guard let semester = viewModel.selectedSemester else { return }
+                if let course = semester.courses.first(where: { $0.id == id }) {
+                    // 全スロットから削除（候補には残る）
+                    let slotsToRemove = course.slots
+                    for slot in slotsToRemove {
+                        if !course.isLocked {
+                            viewModel.removeCourse(course, day: slot.day, period: slot.period, context: modelContext)
+                        }
                     }
+                    HapticFeedback.warning()
                 }
             }
         }

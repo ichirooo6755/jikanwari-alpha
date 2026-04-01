@@ -118,6 +118,9 @@ struct TimetableCellView: View {
             .padding(5)
         }
         .contentShape(Rectangle())
+        .onDrag {
+            NSItemProvider(object: course.id.uuidString as NSString)
+        }
         .onTapGesture {
             if viewModel.isRegistrationMode {
                 if viewModel.selectedCourses.contains(course.id) {
