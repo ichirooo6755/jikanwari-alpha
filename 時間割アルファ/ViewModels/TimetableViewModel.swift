@@ -195,6 +195,32 @@ final class TimetableViewModel {
         try? context.save()
     }
 
+    // MARK: - Auto Semester Detection
+
+    /// 現在の日付から学期名を返す（1〜5月: 春学期、6〜12月: 秋学期）
+    static func currentSemesterName() -> String {
+        let now = Date()
+        let year = Calendar.current.component(.year, from: now)
+        let month = Calendar.current.component(.month, from: now)
+        let term = month <= 5 ? "春学期" : "秋学期"
+        return "\(year)年 \(term)"
+    }
+
+    /// 起動時に現在学期を自動選択（なければ作成して選択）
+    func autoSelectCurrentSemester(allSemesters: [Semester], context: ModelContext) {
+        guard selectedSemester == nil else { return }
+        let name = Self.currentSemesterName()
+        if let existing = allSemesters.first(where: { $0.name == name }) {
+            selectedSemester = existing
+        } else {
+            let new = Semester(name: name)
+            new.isActive = true
+            context.insert(new)
+            try? context.save()
+            selectedSemester = new
+        }
+    }
+
     // MARK: - Course CRUD
 
     func addCourse(name: String, subtitle: String, credits: Int, instructor: String,

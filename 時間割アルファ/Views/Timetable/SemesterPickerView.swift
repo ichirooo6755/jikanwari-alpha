@@ -11,15 +11,14 @@ struct SemesterPickerView: View {
     @Query(sort: \Semester.createdAt, order: .reverse)
     private var semesters: [Semester]
 
-    @State private var showAddSemester = false
-    @State private var newSemesterName = ""
+    @State private var showAddSheet = false
 
     var body: some View {
         NavigationStack {
             List {
                 ForEach(semesters) { semester in
                     HStack {
-                        VStack(alignment: .leading) {
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(semester.name)
                                 .fontWeight(viewModel.selectedSemester?.id == semester.id ? .bold : .regular)
                             Text("\(semester.courses.count)科目")
@@ -28,7 +27,7 @@ struct SemesterPickerView: View {
                         }
                         Spacer()
                         if viewModel.selectedSemester?.id == semester.id {
-                            Image(systemName: "checkmark")
+                            Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.blue)
                         }
                     }
@@ -44,7 +43,7 @@ struct SemesterPickerView: View {
                     }
                 }
             }
-            .navigationTitle("学期")
+            .navigationTitle("学期を選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -52,25 +51,123 @@ struct SemesterPickerView: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showAddSemester = true
+                        showAddSheet = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .alert("学期を追加", isPresented: $showAddSemester) {
-                TextField("例: 2024年度 前期", text: $newSemesterName)
-                Button("追加") {
-                    guard !newSemesterName.isEmpty else { return }
-                    _ = viewModel.addSemester(name: newSemesterName, context: modelContext)
-                    newSemesterName = ""
+            .sheet(isPresented: $showAddSheet) {
+                AddSemesterSheet(viewModel: viewModel, existingSemesters: semesters) {
                     dismiss()
                 }
-                Button("キャンセル", role: .cancel) {
-                    newSemesterName = ""
+            }
+        }
+    }
+}
+
+// MARK: - AddSemesterSheet
+
+struct AddSemesterSheet: View {
+    @Bindable var viewModel: TimetableViewModel
+    let existingSemesters: [Semester]
+    let onAdded: () -> Void
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    private let currentYear = Calendar.current.component(.year, from: Date())
+    private let currentMonth = Calendar.current.component(.month, from: Date())
+
+    // 選択肢：現在年の前後2年
+    private var yearOptions: [Int] {
+        (currentYear - 1 ... currentYear + 2).map { $0 }
+    }
+
+    @State private var selectedYear: Int
+    @State private var selectedTerm: Term
+
+    enum Term: String, CaseIterable {
+        case spring = "春学期"
+        case fall   = "秋学期"
+    }
+
+    init(viewModel: TimetableViewModel, existingSemesters: [Semester], onAdded: @escaping () -> Void) {
+        self.viewModel = viewModel
+        self.existingSemesters = existingSemesters
+        self.onAdded = onAdded
+
+        let year = Calendar.current.component(.year, from: Date())
+        let month = Calendar.current.component(.month, from: Date())
+        _selectedYear = State(initialValue: year)
+        _selectedTerm = State(initialValue: month <= 5 ? .spring : .fall)
+    }
+
+    private var semesterName: String {
+        "\(selectedYear)年 \(selectedTerm.rawValue)"
+    }
+
+    private var alreadyExists: Bool {
+        existingSemesters.contains { $0.name == semesterName }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("年度") {
+                    Picker("年", selection: $selectedYear) {
+                        ForEach(yearOptions, id: \.self) { year in
+                            Text("\(year)年").tag(year)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 120)
                 }
-            } message: {
-                Text("学期名を入力してください")
+
+                Section("学期") {
+                    Picker("学期", selection: $selectedTerm) {
+                        ForEach(Term.allCases, id: \.self) { term in
+                            Text(term.rawValue).tag(term)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.vertical, 4)
+                }
+
+                Section {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 4) {
+                            Text(semesterName)
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            if alreadyExists {
+                                Label("すでに存在します", systemImage: "exclamationmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                } header: {
+                    Text("プレビュー")
+                }
+            }
+            .navigationTitle("学期を追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("追加") {
+                        _ = viewModel.addSemester(name: semesterName, context: modelContext)
+                        dismiss()
+                        onAdded()
+                    }
+                    .disabled(alreadyExists)
+                }
             }
         }
     }

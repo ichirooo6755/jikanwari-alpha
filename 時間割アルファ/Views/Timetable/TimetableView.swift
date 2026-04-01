@@ -13,6 +13,9 @@ struct TimetableView: View {
     @State private var showSemesterPicker = false
     @State private var draggedCourse: Course?
 
+    @Query(sort: \Semester.createdAt)
+    private var allSemesters: [Semester]
+
     private let periods = 1...5
     private let days = 0...5  // 月〜土
 
@@ -71,6 +74,15 @@ struct TimetableView: View {
             Button("キャンセル", role: .cancel) {}
         } message: {
             conflictMessage
+        }
+        .onAppear {
+            viewModel.autoSelectCurrentSemester(allSemesters: allSemesters, context: modelContext)
+        }
+        .onChange(of: allSemesters) { _, new in
+            // 学期が追加された直後に再チェック（まだ未選択の場合のみ）
+            if viewModel.selectedSemester == nil {
+                viewModel.autoSelectCurrentSemester(allSemesters: new, context: modelContext)
+            }
         }
     }
 
