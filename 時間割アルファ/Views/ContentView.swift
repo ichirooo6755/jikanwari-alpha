@@ -9,22 +9,12 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // 時間割タブ
-            NavigationStack {
-                TimetableView(viewModel: viewModel)
-                    .navigationTitle("時間割アルファ")
-                    .toolbar {
-                        if let semester = viewModel.selectedSemester {
-                            ToolbarItem(placement: .primaryAction) {
-                                TimetableShareButton(semester: semester, viewModel: viewModel)
-                            }
-                        }
-                    }
-            }
-            .tabItem {
-                Label("時間割", systemImage: "calendar")
-            }
-            .tag(0)
+            // 時間割タブ（ナビゲーションなし：グリッドを最大化）
+            TimetableView(viewModel: viewModel)
+                .tabItem {
+                    Label("時間割", systemImage: "calendar")
+                }
+                .tag(0)
 
             // お出かけ準備タブ
             DailyPrepView()
