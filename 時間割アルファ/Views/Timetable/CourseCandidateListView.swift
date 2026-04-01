@@ -100,6 +100,7 @@ struct CandidateCourseChip: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var showDetail = false
+    @GestureState private var isPressed = false
 
     var body: some View {
         let isSelected = viewModel.selectedCourses.contains(course.id)
@@ -126,16 +127,35 @@ struct CandidateCourseChip: View {
         .padding(.vertical, 6)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: course.colorHex).opacity(0.15))
+                // 選択時に opacity を 0.15→0.25 に強化
+                .fill(Color(hex: course.colorHex).opacity(isSelected ? 0.25 : 0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(isSelected ? Color(hex: course.colorHex) : Color(.systemGray4), lineWidth: isSelected ? 2 : 1)
+                        .stroke(
+                            isSelected ? Color(hex: course.colorHex) : Color(.systemGray4),
+                            lineWidth: isSelected ? 2 : 1
+                        )
                 )
         )
         .contentShape(RoundedRectangle(cornerRadius: 10))
-        .onTapGesture {
-            viewModel.toggleCourseSelection(course.id)
-        }
+        // プレスフィードバック
+        .scaleEffect(isPressed ? 0.96 : 1.0, anchor: .center)
+        .animation(
+            isPressed
+                ? .spring(response: 0.15, dampingFraction: 0.70)
+                : .spring(response: 0.25, dampingFraction: 0.80),
+            value: isPressed
+        )
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in
+                    if !state { HapticFeedback.light() }
+                    state = true
+                }
+                .onEnded { _ in
+                    viewModel.toggleCourseSelection(course.id)
+                }
+        )
         .contextMenu {
             Button {
                 showDetail = true

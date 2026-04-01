@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -56,7 +56,7 @@
 		0BB6254C4474C6B1DB4F9774 /* AlarmFiringView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlarmFiringView.swift; sourceTree = "<group>"; };
 		0C1622CB5C6EC421DA595F53 /* PDFViewerRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFViewerRepresentable.swift; sourceTree = "<group>"; };
 		0E85001BDDE05D8FA3850DD9 /* PDFKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PDFKit.framework; path = System/Library/Frameworks/PDFKit.framework; sourceTree = SDKROOT; };
-		26A767174389C76E1018BA94 /* 時間割アルファ.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "時間割アルファ.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		26A767174389C76E1018BA94 /* 時間割アルファ.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "時間割アルファ.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D481CE1D246E9F7D4AFA416 /* TransitViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransitViewModel.swift; sourceTree = "<group>"; };
 		321152E65F7A02D39AA169AF /* 時間割アルファApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "時間割アルファApp.swift"; sourceTree = "<group>"; };
 		328D94D519359DC114845F14 /* Course.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Course.swift; sourceTree = "<group>"; };
@@ -295,7 +295,6 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5EF84B8ABF0CB382EC3C3785 = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -310,7 +309,6 @@
 			);
 			mainGroup = 736B20CD3C77D84362DF4B88;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -383,7 +381,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = K5D7GVJFG7;
 				INFOPLIST_FILE = "時間割アルファ/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -526,7 +524,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = K5D7GVJFG7;
 				INFOPLIST_FILE = "時間割アルファ/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

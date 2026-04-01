@@ -40,21 +40,51 @@ struct AddCourseView: View {
                 }
 
                 Section("表示色") {
-                    LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 6), spacing: 8) {
+                    // 6列→5列に変更（44pt タッチターゲットで収まる幅）
+                    LazyVGrid(
+                        columns: Array(repeating: .init(.flexible(), alignment: .center), count: 5),
+                        spacing: 12
+                    ) {
                         ForEach(CourseColors.presets, id: \.self) { hex in
-                            Circle()
-                                .fill(Color(hex: hex))
-                                .frame(width: 36, height: 36)
-                                .overlay(
+                            let isSelected = selectedColorHex == hex
+                            Button {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.65)) {
+                                    selectedColorHex = hex
+                                }
+                                HapticFeedback.light()
+                            } label: {
+                                ZStack {
+                                    // 選択リング: 選択時に色付きリングが出現
                                     Circle()
-                                        .stroke(Color.white, lineWidth: selectedColorHex == hex ? 3 : 0)
-                                        .padding(2)
-                                )
-                                .overlay(
+                                        .stroke(Color(hex: hex), lineWidth: 2.5)
+                                        .frame(width: 44, height: 44)
+                                        .opacity(isSelected ? 1 : 0)
+                                        .scaleEffect(isSelected ? 1 : 0.8)
+
+                                    // 色円: 選択時に少し縮小してリングとの隙間を作る
                                     Circle()
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                                )
-                                .onTapGesture { selectedColorHex = hex }
+                                        .fill(Color(hex: hex))
+                                        .frame(
+                                            width: isSelected ? 32 : 36,
+                                            height: isSelected ? 32 : 36
+                                        )
+
+                                    // 選択チェックマーク
+                                    if isSelected {
+                                        Image(systemName: "checkmark")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundStyle(
+                                                Color(hex: hex).isLight
+                                                    ? Color.black.opacity(0.7)
+                                                    : .white
+                                            )
+                                            .transition(.scale(scale: 0.5).combined(with: .opacity))
+                                    }
+                                }
+                                .frame(width: 44, height: 44)
+                                .contentShape(Circle())
+                            }
+                            .buttonStyle(.pressable(scale: 0.94))
                         }
                     }
                     .padding(.vertical, 4)
@@ -97,6 +127,7 @@ struct AddCourseView: View {
                             colorHex: selectedColorHex,
                             context: modelContext
                         )
+                        HapticFeedback.success()
                         dismiss()
                     }
                     .disabled(name.isEmpty)

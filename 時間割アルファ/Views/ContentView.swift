@@ -12,7 +12,7 @@ struct ContentView: View {
             // 時間割タブ（ナビゲーションなし：グリッドを最大化）
             TimetableView(viewModel: viewModel)
                 .tabItem {
-                    Label("時間割", systemImage: "calendar")
+                    Label("時間割", systemImage: selectedTab == 0 ? "calendar.fill" : "calendar")
                 }
                 .tag(0)
 
@@ -26,11 +26,15 @@ struct ContentView: View {
             // メモタブ
             NotesListView()
                 .tabItem {
-                    Label("メモ", systemImage: "note.text")
+                    Label("メモ", systemImage: selectedTab == 2 ? "note.text" : "note.text")
                 }
                 .tag(2)
         }
         .tint(.blue)
+        // タブ切替時に軽い haptic フィードバック
+        .onChange(of: selectedTab) { _, _ in
+            HapticFeedback.light()
+        }
     }
 }
 

@@ -104,23 +104,37 @@ struct TodayOverviewView: View {
     @Bindable var transitVM: TransitViewModel
     let schedule: DepartureSchedule?
 
+    @State private var cardsVisible = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
                 if let schedule {
-                    // 出発時刻カード
+                    // 出発時刻カード（stagger delay 0ms）
                     departureCard(schedule: schedule)
+                        .opacity(cardsVisible ? 1 : 0)
+                        .offset(y: cardsVisible ? 0 : 16)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.80).delay(0.00), value: cardsVisible)
 
-                    // 遅延情報サマリー
+                    // 遅延情報サマリー（stagger delay 60ms）
                     delayStatusCard
+                        .opacity(cardsVisible ? 1 : 0)
+                        .offset(y: cardsVisible ? 0 : 16)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.80).delay(0.06), value: cardsVisible)
 
-                    // ルート提案カード
+                    // ルート提案カード（stagger delay 120ms）
                     if !transitVM.suggestedRoutes.isEmpty {
                         routeCard
+                            .opacity(cardsVisible ? 1 : 0)
+                            .offset(y: cardsVisible ? 0 : 16)
+                            .animation(.spring(response: 0.4, dampingFraction: 0.80).delay(0.12), value: cardsVisible)
                     }
 
-                    // 持ち物チェック
+                    // 持ち物チェック（stagger delay 180ms）
                     belongingsSummaryCard(schedule: schedule)
+                        .opacity(cardsVisible ? 1 : 0)
+                        .offset(y: cardsVisible ? 0 : 16)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.80).delay(0.18), value: cardsVisible)
                 } else {
                     VStack(spacing: 12) {
                         Spacer(minLength: 60)
@@ -134,6 +148,9 @@ struct TodayOverviewView: View {
                 }
             }
             .padding()
+        }
+        .onAppear {
+            cardsVisible = true
         }
         .refreshable {
             if let schedule {
@@ -188,6 +205,9 @@ struct TodayOverviewView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 2層シャドウ: 光の物理をシミュレートして奥行きを出す
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
     }
 
     private var delayStatusCard: some View {
@@ -233,6 +253,9 @@ struct TodayOverviewView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 2層シャドウ: 光の物理をシミュレートして奥行きを出す
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
     }
 
     private var routeCard: some View {
@@ -271,6 +294,9 @@ struct TodayOverviewView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 2層シャドウ: 光の物理をシミュレートして奥行きを出す
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
     }
 
     private func belongingsSummaryCard(schedule: DepartureSchedule) -> some View {
@@ -298,5 +324,8 @@ struct TodayOverviewView: View {
         .padding()
         .background(Color(.secondarySystemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        // 2層シャドウ: 光の物理をシミュレートして奥行きを出す
+        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.03), radius: 2, x: 0, y: 1)
     }
 }

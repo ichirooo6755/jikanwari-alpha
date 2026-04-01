@@ -116,7 +116,7 @@ struct CourseDetailView: View {
     private var notesSection: some View {
         Section {
             ForEach(course.notes) { note in
-                NoteRowView(note: note, isEditable: true, onDelete: {
+                NoteRowView(note: note, isEditable: true, onDelete: { // メモは参照モードでも常に編集可能
                     removeNote(note)
                 })
             }

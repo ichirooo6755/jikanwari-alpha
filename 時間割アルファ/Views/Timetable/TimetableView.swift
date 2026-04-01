@@ -32,7 +32,12 @@ struct TimetableView: View {
                     if viewModel.isRegistrationMode && showReferencePanel {
                         ReferencePanelView(viewModel: viewModel)
                             .frame(height: geo.size.height * 0.42)
-                            .transition(.move(edge: .bottom))
+                            .transition(
+                                .asymmetric(
+                                    insertion: .move(edge: .bottom).combined(with: .opacity),
+                                    removal: .move(edge: .bottom).combined(with: .opacity)
+                                )
+                            )
                     }
                 } else {
                     noSemesterView
@@ -53,9 +58,14 @@ struct TimetableView: View {
             BatchColorPickerView(viewModel: viewModel)
         }
         .alert("履修確定", isPresented: $viewModel.showFinalizeConfirm) {
-            Button("OK") {}
+            Button("OK") {
+                HapticFeedback.success()
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                    viewModel.mode = .reference
+                }
+            }
         } message: {
-            Text("時間割を確定しました。")
+            Text("時間割を確定しました。参照モードに切り替わります。")
         }
         .alert("時間割の競合があります", isPresented: $viewModel.showConflictAlert) {
             Button("このまま確定") { viewModel.showFinalizeConfirm = true }
@@ -73,73 +83,185 @@ struct TimetableView: View {
         }
     }
 
-    // MARK: - Compact Header (1行)
+    // MARK: - Compact Header
 
     private func compactHeader(geo: GeometryProxy) -> some View {
-        HStack(spacing: 8) {
-            // 学期名（左）
-            Button {
-                showSemesterPicker = true
-            } label: {
-                Text(viewModel.selectedSemester?.name ?? "学期未選択")
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .foregroundStyle(.primary)
+        VStack(spacing: 0) {
+            // 上段: 学期名 + モード切替セグメント
+            HStack(spacing: 10) {
+                // 学期名（左）
+                Button {
+                    showSemesterPicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(viewModel.selectedSemester?.name ?? "学期未選択")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .foregroundStyle(.primary)
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.pressable)
+
+                Spacer()
+
+                // モード切替: 明確なセグメントコントロール
+                modeSegmentedControl
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .padding(.top, geo.safeAreaInsets.top)
+
+            // 下段: モード別アクションバー（トランジション付き）
+            if viewModel.isRegistrationMode {
+                registrationActionBar
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+            } else {
+                referenceActionBar
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .top)),
+                        removal: .opacity
+                    ))
+            }
+
+            Divider()
+        }
+        .background(Color(.systemBackground).opacity(0.97))
+    }
+
+    // MARK: - Mode Segmented Control
+
+    private var modeSegmentedControl: some View {
+        HStack(spacing: 0) {
+            modeButton(mode: .registration, label: "登録", icon: "pencil")
+            modeButton(mode: .reference, label: "参照", icon: "eye")
+        }
+        .background(
+            Capsule().fill(Color(.systemGray5))
+        )
+    }
+
+    private func modeButton(mode: AppMode, label: String, icon: String) -> some View {
+        let isActive = viewModel.mode == mode
+        return Button {
+            guard viewModel.mode != mode else { return }
+            withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                viewModel.mode = mode
+            }
+            HapticFeedback.medium()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                Text(label)
+                    .font(.caption.weight(.semibold))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                isActive
+                    ? Capsule().fill(mode == .registration ? Color.blue : Color(.systemGray3))
+                    : Capsule().fill(Color.clear)
+            )
+            .foregroundStyle(isActive ? .white : .secondary)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+    }
+
+    // MARK: - Registration Action Bar
+
+    private var registrationActionBar: some View {
+        HStack(spacing: 12) {
+            // 一括色変更
+            if !viewModel.selectedCourses.isEmpty {
+                Button {
+                    showBatchColorPicker = true
+                } label: {
+                    Label("色変更", systemImage: "paintbrush.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.orange.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.pressable)
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
+            }
+
+            // 参照パネル切替
+            Button {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                    showReferencePanel.toggle()
+                }
+                HapticFeedback.light()
+            } label: {
+                Label(showReferencePanel ? "パネル閉" : "参照パネル",
+                      systemImage: showReferencePanel ? "rectangle.bottomhalf.filled" : "rectangle.bottomhalf")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(.systemGray5))
+                    .clipShape(Capsule())
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.pressable)
 
             Spacer()
 
-            // 登録モード時の追加アクション
-            if viewModel.isRegistrationMode {
-                if !viewModel.selectedCourses.isEmpty {
-                    Button {
-                        showBatchColorPicker = true
-                    } label: {
-                        Image(systemName: "paintbrush.fill")
-                            .foregroundStyle(.orange)
-                    }
-                }
-
-                Button {
-                    withAnimation(.spring()) { showReferencePanel.toggle() }
-                } label: {
-                    Image(systemName: showReferencePanel ? "rectangle.bottomhalf.filled" : "rectangle.bottomhalf")
-                }
-
-                Button {
-                    viewModel.finalizeRegistration(context: modelContext)
-                } label: {
-                    Text("確定")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.green)
-                        .clipShape(Capsule())
-                }
-            } else {
-                // 参照モード: 共有ボタン
-                if let semester = viewModel.selectedSemester {
-                    TimetableShareButton(semester: semester, viewModel: viewModel)
-                }
-            }
-
-            // モード切替（アイコンのみ）
+            // 履修確定ボタン — 大きく目立たせる
             Button {
-                withAnimation {
-                    viewModel.mode = viewModel.mode == .registration ? .reference : .registration
-                }
+                HapticFeedback.rigid()
+                viewModel.finalizeRegistration(context: modelContext)
             } label: {
-                Image(systemName: viewModel.mode == .registration ? "pencil.circle.fill" : "eye.circle.fill")
-                    .font(.title3)
-                    .foregroundStyle(viewModel.mode == .registration ? .blue : .secondary)
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.caption.weight(.bold))
+                    Text("履修確定")
+                        .font(.subheadline.weight(.bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.green)
+                .clipShape(Capsule())
+                .shadow(color: Color.green.opacity(0.3), radius: 6, x: 0, y: 3)
+            }
+            .buttonStyle(.pressable)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+    }
+
+    // MARK: - Reference Action Bar
+
+    private var referenceActionBar: some View {
+        HStack(spacing: 12) {
+            // 参照モードラベル
+            HStack(spacing: 4) {
+                Image(systemName: "eye.fill")
+                    .font(.caption)
+                Text("閲覧中 — メモは編集可能")
+                    .font(.caption)
+            }
+            .foregroundStyle(.secondary)
+
+            Spacer()
+
+            // 共有ボタン
+            if let semester = viewModel.selectedSemester {
+                TimetableShareButton(semester: semester, viewModel: viewModel)
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .padding(.top, geo.safeAreaInsets.top)
-        .background(Color(.systemBackground).opacity(0.97))
-        .overlay(Divider(), alignment: .bottom)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Timetable Grid (画面を満たす)
@@ -154,12 +276,20 @@ struct TimetableView: View {
         let availableH = geo.size.height
             - headerH
             - (viewModel.isRegistrationMode && showReferencePanel ? geo.size.height * 0.42 : 0)
-            - 44  // compactHeader概算
+            - 76  // compactHeader概算（2段ヘッダー）
             - geo.safeAreaInsets.bottom
         let cellH = max(44, (availableH - CGFloat(periods.count) * spacing) / CGFloat(periods.count))
 
         let availableW = geo.size.width - periodColW - CGFloat(days.count) * spacing
         let cellW = availableW / CGFloat(days.count)
+
+        // 今日の曜日インデックス（月=0 〜 土=5、範囲外なら -1）
+        let todayIndex: Int = {
+            let weekday = Calendar.current.component(.weekday, from: Date())
+            // weekday: 1=日, 2=月...7=土 → アプリ: 0=月...5=土
+            let idx = weekday - 2
+            return (0...5).contains(idx) ? idx : -1
+        }()
 
         return VStack(spacing: spacing) {
             // 曜日ヘッダー
@@ -168,9 +298,16 @@ struct TimetableView: View {
                 ForEach(days, id: \.self) { day in
                     Text(TimeSlot.dayNames[day])
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(
+                            day == 5 ? Color.red :
+                            day == todayIndex ? Color.blue :
+                            Color.primary
+                        )
                         .frame(width: cellW, height: headerH)
                         .background(
-                            day == 5 ? Color.red.opacity(0.12) : Color(.systemGray6)
+                            day == 5 ? Color.red.opacity(0.12) :
+                            day == todayIndex ? Color.blue.opacity(0.10) :
+                            Color(.systemGray6)
                         )
                 }
             }
@@ -211,13 +348,25 @@ struct TimetableView: View {
                     Image(systemName: "plus")
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(.white)
-                        .frame(width: 52, height: 52)
+                        .frame(width: 56, height: 56)
                         .background(Color.blue)
                         .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+                        // カラー影: 青い光彩でボタンが浮いて見える
+                        .shadow(color: Color.blue.opacity(0.35), radius: 12, x: 0, y: 6)
+                        .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
                 }
+                .buttonStyle(FABButtonStyle())
                 .padding(.trailing, 16)
                 .padding(.bottom, geo.safeAreaInsets.bottom + 8)
+                // spring 登場: scale(0.7) + opacity から入場
+                .transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 0.7, anchor: .bottomTrailing)
+                            .combined(with: .opacity),
+                        removal: .scale(scale: 0.8, anchor: .bottomTrailing)
+                            .combined(with: .opacity)
+                    )
+                )
             }
         }
     }
@@ -356,32 +505,46 @@ struct CandidateListRow: View {
     @State private var showDetail = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color(hex: course.colorHex))
-                .frame(width: 6, height: 44)
+        let isSelected = viewModel.selectedCourses.contains(course.id)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(course.name)
-                    .font(.subheadline.weight(.semibold))
-                HStack(spacing: 6) {
-                    if !course.instructor.isEmpty {
-                        Text(course.instructor).font(.caption).foregroundStyle(.secondary)
+        Button {
+            viewModel.toggleCourseSelection(course.id)
+            HapticFeedback.light()
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(hex: course.colorHex))
+                    .frame(width: 6, height: 44)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(course.name)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        if !course.instructor.isEmpty {
+                            Text(course.instructor).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Text("\(course.credits)単位").font(.caption).foregroundStyle(.secondary)
                     }
-                    Text("\(course.credits)単位").font(.caption).foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // 選択状態: チェックマーク ↔ ドラッグハンドル
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.blue)
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                } else {
+                    Image(systemName: "line.3.horizontal")
+                        .foregroundStyle(.secondary)
+                        .transition(.opacity)
                 }
             }
-
-            Spacer()
-
-            Image(systemName: "line.3.horizontal")
-                .foregroundStyle(.secondary)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            viewModel.toggleCourseSelection(course.id)
-        }
+        .buttonStyle(.pressable)
         .contextMenu {
             Button { showDetail = true } label: { Label("詳細・メモ", systemImage: "info.circle") }
             Button(role: .destructive) {
