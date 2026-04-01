@@ -83,54 +83,77 @@ struct TimetableView: View {
         }
     }
 
-    // MARK: - Compact Header
+    // MARK: - Compact Header (1行)
 
     private func compactHeader(geo: GeometryProxy) -> some View {
-        VStack(spacing: 0) {
-            // 上段: 学期名 + モード切替セグメント
-            HStack(spacing: 10) {
-                // 学期名（左）
+        HStack(spacing: 8) {
+            // 学期名（左）
+            Button {
+                showSemesterPicker = true
+            } label: {
+                HStack(spacing: 3) {
+                    Text(viewModel.selectedSemester?.name ?? "学期未選択")
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Spacer(minLength: 4)
+
+            // モード切替セグメント（コンパクト）
+            modeSegmentedControl
+
+            // 登録モード: 確定ボタン / 参照モード: 共有ボタン
+            if viewModel.isRegistrationMode {
                 Button {
-                    showSemesterPicker = true
+                    HapticFeedback.rigid()
+                    viewModel.finalizeRegistration(context: modelContext)
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(viewModel.selectedSemester?.name ?? "学期未選択")
-                            .font(.subheadline.weight(.semibold))
-                            .lineLimit(1)
-                            .foregroundStyle(.primary)
-                        Image(systemName: "chevron.down")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("確定")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.green)
+                        .clipShape(Capsule())
                 }
                 .buttonStyle(.pressable)
 
-                Spacer()
-
-                // モード切替: 明確なセグメントコントロール
-                modeSegmentedControl
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .padding(.top, geo.safeAreaInsets.top)
-
-            // 下段: モード別アクションバー（トランジション付き）
-            if viewModel.isRegistrationMode {
-                registrationActionBar
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .bottom).combined(with: .opacity),
-                        removal: .opacity
-                    ))
+                // オーバーフローメニュー（参照パネル・色変更）
+                Menu {
+                    Button {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                            showReferencePanel.toggle()
+                        }
+                    } label: {
+                        Label(showReferencePanel ? "参照パネルを閉じる" : "参照パネル",
+                              systemImage: showReferencePanel ? "rectangle.bottomhalf.filled" : "rectangle.bottomhalf")
+                    }
+                    if !viewModel.selectedCourses.isEmpty {
+                        Button {
+                            showBatchColorPicker = true
+                        } label: {
+                            Label("一括色変更", systemImage: "paintbrush.fill")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
             } else {
-                referenceActionBar
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .scale(scale: 0.95, anchor: .top)),
-                        removal: .opacity
-                    ))
+                if let semester = viewModel.selectedSemester {
+                    TimetableShareButton(semester: semester, viewModel: viewModel)
+                }
             }
-
-            Divider()
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .background(Color(.systemBackground).opacity(0.97))
     }
 
@@ -155,14 +178,14 @@ struct TimetableView: View {
             }
             HapticFeedback.medium()
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 3) {
                 Image(systemName: icon)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 10, weight: .semibold))
                 Text(label)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 11, weight: .semibold))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
             .background(
                 isActive
                     ? Capsule().fill(mode == .registration ? Color.blue : Color(.systemGray3))
@@ -174,119 +197,31 @@ struct TimetableView: View {
         .contentShape(Capsule())
     }
 
-    // MARK: - Registration Action Bar
-
-    private var registrationActionBar: some View {
-        HStack(spacing: 12) {
-            // 一括色変更
-            if !viewModel.selectedCourses.isEmpty {
-                Button {
-                    showBatchColorPicker = true
-                } label: {
-                    Label("色変更", systemImage: "paintbrush.fill")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.orange.opacity(0.12))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.pressable)
-                .transition(.scale(scale: 0.8).combined(with: .opacity))
-            }
-
-            // 参照パネル切替
-            Button {
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
-                    showReferencePanel.toggle()
-                }
-                HapticFeedback.light()
-            } label: {
-                Label(showReferencePanel ? "パネル閉" : "参照パネル",
-                      systemImage: showReferencePanel ? "rectangle.bottomhalf.filled" : "rectangle.bottomhalf")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(.systemGray5))
-                    .clipShape(Capsule())
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.pressable)
-
-            Spacer()
-
-            // 履修確定ボタン — 大きく目立たせる
-            Button {
-                HapticFeedback.rigid()
-                viewModel.finalizeRegistration(context: modelContext)
-            } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.caption.weight(.bold))
-                    Text("履修確定")
-                        .font(.subheadline.weight(.bold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.green)
-                .clipShape(Capsule())
-                .shadow(color: Color.green.opacity(0.3), radius: 6, x: 0, y: 3)
-            }
-            .buttonStyle(.pressable)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-    }
-
-    // MARK: - Reference Action Bar
-
-    private var referenceActionBar: some View {
-        HStack(spacing: 12) {
-            // 参照モードラベル
-            HStack(spacing: 4) {
-                Image(systemName: "eye.fill")
-                    .font(.caption)
-                Text("閲覧中 — メモは編集可能")
-                    .font(.caption)
-            }
-            .foregroundStyle(.secondary)
-
-            Spacer()
-
-            // 共有ボタン
-            if let semester = viewModel.selectedSemester {
-                TimetableShareButton(semester: semester, viewModel: viewModel)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-    }
-
     // MARK: - Timetable Grid (画面を満たす)
 
     private func timetableGrid(geo: GeometryProxy) -> some View {
-        // 利用可能な高さからセルの高さを計算
-        let headerH: CGFloat = 28   // 曜日ヘッダー行
-        let periodColW: CGFloat = 22 // 時限番号列の幅
-        let spacing: CGFloat = 1
+        let dayHeaderH: CGFloat = 22   // 曜日ヘッダー行
+        let periodColW: CGFloat = 18   // 時限番号列の幅
+        let spacing: CGFloat = 0.5     // セル間の最小スペーシング
+        let compactHeaderH: CGFloat = 36 // 1行ヘッダー概算
+        let tabBarH: CGFloat = 49      // TabBar高さ
 
-        // 安全領域を除いた高さを5コマで割る
+        // 利用可能な高さ: 画面全体 - ヘッダー - 曜日行 - TabBar - safeArea
+        let refPanelH: CGFloat = (viewModel.isRegistrationMode && showReferencePanel) ? geo.size.height * 0.35 : 0
         let availableH = geo.size.height
-            - headerH
-            - (viewModel.isRegistrationMode && showReferencePanel ? geo.size.height * 0.42 : 0)
-            - 76  // compactHeader概算（2段ヘッダー）
-            - geo.safeAreaInsets.bottom
-        let cellH = max(44, (availableH - CGFloat(periods.count) * spacing) / CGFloat(periods.count))
+            - compactHeaderH
+            - dayHeaderH
+            - refPanelH
+            - tabBarH
+            - CGFloat(periods.count - 1) * spacing
+        let cellH = max(40, availableH / CGFloat(periods.count))
 
-        let availableW = geo.size.width - periodColW - CGFloat(days.count) * spacing
+        let availableW = geo.size.width - periodColW - CGFloat(days.count - 1) * spacing
         let cellW = availableW / CGFloat(days.count)
 
         // 今日の曜日インデックス（月=0 〜 土=5、範囲外なら -1）
         let todayIndex: Int = {
             let weekday = Calendar.current.component(.weekday, from: Date())
-            // weekday: 1=日, 2=月...7=土 → アプリ: 0=月...5=土
             let idx = weekday - 2
             return (0...5).contains(idx) ? idx : -1
         }()
@@ -294,21 +229,17 @@ struct TimetableView: View {
         return VStack(spacing: spacing) {
             // 曜日ヘッダー
             HStack(spacing: spacing) {
-                Color.clear.frame(width: periodColW, height: headerH)
+                Color.clear.frame(width: periodColW, height: dayHeaderH)
                 ForEach(days, id: \.self) { day in
                     Text(TimeSlot.dayNames[day])
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(
                             day == 5 ? Color.red :
-                            day == todayIndex ? Color.blue :
+                            day == todayIndex ? Color.accentColor :
                             Color.primary
                         )
-                        .frame(width: cellW, height: headerH)
-                        .background(
-                            day == 5 ? Color.red.opacity(0.12) :
-                            day == todayIndex ? Color.blue.opacity(0.10) :
-                            Color(.systemGray6)
-                        )
+                        .frame(width: cellW, height: dayHeaderH)
+                        .background(Color(.systemGray6))
                 }
             }
 
@@ -317,7 +248,7 @@ struct TimetableView: View {
                 HStack(spacing: spacing) {
                     // 時限番号
                     Text("\(period)")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: periodColW, height: cellH)
                         .background(Color(.systemGray6))
